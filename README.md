@@ -2,19 +2,36 @@
 
 Paste a paper link. Get the claim, the lineage, and what to read next.
 
-Neighborhood comes from [Semantic Scholar](https://www.semanticscholar.org/product/api) and [OpenAlex](https://openalex.org). An LLM ranks the 3+3+3 and writes the orientation.
+Neighborhood comes from [Semantic Scholar](https://www.semanticscholar.org/product/api) and [OpenAlex](https://openalex.org). An LLM ranks the 3+3+3 and writes the orientation. Default model is Gemini 2.5 Flash via OpenRouter. Any OpenAI-compatible server works (Ollama, LM Studio).
 
 ## Run
 
 ```bash
 cp .env.example .env.local
-# add OPENROUTER_API_KEY or OPENAI_API_KEY
+# add OPENROUTER_API_KEY  — or set LLM_BASE_URL for a local model
 bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Try `1706.03762`.
 
 Shareable pages live at `/p/{arxiv-id}`. First visit is slow (API + model). After that it is cached in `.data/briefs`.
+
+## Model
+
+Cloud default: `google/gemini-2.5-flash` on OpenRouter. Do not use a reasoning model for this.
+
+Local (Ollama example):
+
+```bash
+ollama pull qwen2.5:14b
+```
+
+```
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_MODEL=qwen2.5:14b
+```
+
+LM Studio is usually `http://localhost:1234/v1`. If the server rejects `response_format`, set `LLM_JSON_MODE=0`.
 
 ## X bot
 
