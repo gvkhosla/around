@@ -34,18 +34,3 @@ export function parseQuery(input: string): ParsedQuery {
     doi,
   };
 }
-
-export function canonicalPaperId(opts: {
-  arxivId?: string | null;
-  paperId?: string | null;
-}) {
-  if (opts.arxivId) return stripArxivVersion(opts.arxivId);
-  if (opts.paperId) return `s2-${opts.paperId}`;
-  throw new Error("No id");
-}
-
-export function s2LookupId(id: string) {
-  if (id.startsWith("s2-")) return id.slice(3);
-  if (id.startsWith("10.")) return `DOI:${id}`;
-  return `ARXIV:${id}`;
-}

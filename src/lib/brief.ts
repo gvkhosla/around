@@ -2,28 +2,19 @@ import { cache } from "react";
 import type { LlmAuth } from "./auth";
 import { readBrief, writeBrief } from "./cache";
 import { completeJson } from "./llm";
-import { parseQuery, stripArxivVersion } from "./parse";
-import { getArxiv } from "./arxiv";
+import { parseQuery } from "./parse";
+import { getArxiv, type ArxivPaper } from "./arxiv";
 import { classifyRefs, extractRefs } from "./refs";
-import type { Brief, Candidate, Neighbor, S2Paper } from "./types";
+import type { Brief, Candidate, Neighbor } from "./types";
 
-function authorLine(paper: S2Paper) {
-  const names = (paper.authors ?? [])
-    .map((a) => a.name)
-    .filter((n): n is string => Boolean(n));
-  if (names.length <= 3) return names.join(", ");
-  return `${names.slice(0, 3).join(", ")} et al.`;
+function authorLine(paper: ArxivPaper) {
+  if (paper.authors.length <= 3) return paper.authors.join(", ");
+  return `${paper.authors.slice(0, 3).join(", ")} et al.`;
 }
 
-function arxivOf(paper: S2Paper) {
-  const id = paper.externalIds?.ArXiv;
-  return id ? stripArxivVersion(id) : undefined;
-}
-
-function fallbackUnderstanding(paper: S2Paper) {
-  const tldr = paper.tldr?.text?.trim();
-  const abstract = paper.abstract?.trim();
-  const claim = tldr || abstract?.split(/(?<=\.)\s/)[0] || paper.title || "";
+function fallbackUnderstanding(paper: ArxivPaper) {
+  const abstract = paper.summary.trim();
+  const claim = abstract.split(/(?<=\.)\s/)[0] || paper.title;
   return {
     claim,
     how: abstract
@@ -32,7 +23,7 @@ function fallbackUnderstanding(paper: S2Paper) {
           .filter(Boolean)
           .slice(0, 5)
       : [],
-    whatsNew: tldr || "See the abstract.",
+    whatsNew: "See the abstract.",
     ignoreIf: "You already know this paper.",
     prerequisites: [],
   };
@@ -87,7 +78,7 @@ function pickNeighbors(
         c.pool === "reference"
           ? "Prior work this paper sits on."
           : c.pool === "citation"
-            ? "Follow-up that cites this paper."
+            ? "Later among the works it cites."
             : "Nearby method or problem.",
       citationCount: c.citationCount,
       url: c.url,
@@ -118,18 +109,6 @@ export async function loadBrief(
   return brief;
 }
 
-function paperFromArxiv(id: string, title: string, authors: string[], summary: string, year?: number, doi?: string, pdfUrl?: string): S2Paper {
-  return {
-    paperId: id,
-    title,
-    abstract: summary,
-    year,
-    authors: authors.map((name) => ({ name })),
-    externalIds: { ArXiv: id, DOI: doi },
-    openAccessPdf: pdfUrl ? { url: pdfUrl } : null,
-  };
-}
-
 export async function getNeighborhood(id: string, paperYear?: number) {
   const refs = await extractRefs(id);
   return classifyRefs(refs, paperYear);
@@ -139,18 +118,9 @@ export async function generateBrief(
   id: string,
   auth?: LlmAuth,
 ): Promise<Brief> {
-  const ax = await getArxiv(id);
-  const paper = paperFromArxiv(
-    ax.id,
-    ax.title,
-    ax.authors,
-    ax.summary,
-    ax.year,
-    ax.doi,
-    ax.pdfUrl,
-  );
-  const hood = await getNeighborhood(ax.id, ax.year);
-  const canonical = ax.id;
+  const paper = await getArxiv(id);
+  const hood = await getNeighborhood(paper.id, paper.year);
+  const canonical = paper.id;
   const builtPool: Candidate[] = hood.builtOn.map((n) => ({
     id: n.id,
     paperId: n.id,
@@ -211,9 +181,7 @@ export async function generateBrief(
             title: paper.title,
             year: paper.year,
             authors: authorLine(paper),
-            venue: paper.venue,
-            tldr: paper.tldr?.text,
-            abstract: paper.abstract?.slice(0, 1800),
+            abstract: paper.summary.slice(0, 1800),
           },
           candidates: {
             builtOn: compact(builtPool, 12),
@@ -248,17 +216,11 @@ export async function generateBrief(
     id: canonical,
     title: paper.title || canonical,
     year: paper.year,
-    authors: (paper.authors ?? [])
-      .map((a) => a.name)
-      .filter((n): n is string => Boolean(n)),
-    venue: paper.venue,
-    citationCount: paper.citationCount,
-    abstract: paper.abstract ?? undefined,
-    arxivId: arxivOf(paper),
-    doi: paper.externalIds?.DOI,
-    pdfUrl:
-      paper.openAccessPdf?.url ||
-      (arxivOf(paper) ? `https://arxiv.org/pdf/${arxivOf(paper)}` : undefined),
+    authors: paper.authors,
+    abstract: paper.summary,
+    arxivId: paper.id,
+    doi: paper.doi,
+    pdfUrl: paper.pdfUrl,
     claim: llm?.claim?.trim() || fallback.claim,
     how: (llm?.how ?? []).filter(Boolean).slice(0, 5).length
       ? (llm?.how ?? []).filter(Boolean).slice(0, 5)

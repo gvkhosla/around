@@ -2,8 +2,7 @@ import type { Neighbor } from "@/lib/types";
 import Link from "next/link";
 
 function internalHref(id: string) {
-  if (/^\d{4}\.\d{4,5}$/.test(id) || id.startsWith("s2-")) return `/p/${id}`;
-  return null;
+  return /^\d{4}\.\d{4,5}$/.test(id) ? `/p/${id}` : null;
 }
 
 export function NeighborList({

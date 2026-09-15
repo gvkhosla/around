@@ -46,21 +46,3 @@ export type Brief = {
   generatedAt: string;
   usedLlm: boolean;
 };
-
-export type S2Paper = {
-  paperId: string;
-  title?: string;
-  abstract?: string | null;
-  year?: number;
-  venue?: string;
-  citationCount?: number;
-  authors?: { name?: string }[];
-  tldr?: { text?: string } | null;
-  externalIds?: {
-    ArXiv?: string;
-    DOI?: string;
-    CorpusId?: number;
-  } | null;
-  url?: string;
-  openAccessPdf?: { url?: string } | null;
-};
