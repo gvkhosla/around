@@ -2,14 +2,9 @@ import { cache } from "react";
 import type { LlmAuth } from "./auth";
 import { readBrief, writeBrief } from "./cache";
 import { completeJson } from "./llm";
-import {
-  canonicalPaperId,
-  parseQuery,
-  s2LookupId,
-  stripArxivVersion,
-} from "./parse";
+import { parseQuery, stripArxivVersion } from "./parse";
 import { getArxiv } from "./arxiv";
-import { s2Neighborhood } from "./s2";
+import { classifyRefs, extractRefs } from "./refs";
 import type { Brief, Candidate, Neighbor, S2Paper } from "./types";
 
 function authorLine(paper: S2Paper) {
@@ -23,49 +18,6 @@ function authorLine(paper: S2Paper) {
 function arxivOf(paper: S2Paper) {
   const id = paper.externalIds?.ArXiv;
   return id ? stripArxivVersion(id) : undefined;
-}
-
-function toCandidate(
-  paper: S2Paper,
-  pool: Candidate["pool"],
-  extra?: { influential?: boolean },
-): Candidate | null {
-  if (!paper.paperId || !paper.title) return null;
-  const arxivId = arxivOf(paper);
-  return {
-    id: canonicalPaperId({ arxivId, paperId: paper.paperId }),
-    paperId: paper.paperId,
-    title: paper.title,
-    year: paper.year,
-    authors: authorLine(paper),
-    citationCount: paper.citationCount,
-    abstract: paper.abstract ?? paper.tldr?.text ?? undefined,
-    arxivId,
-    doi: paper.externalIds?.DOI,
-    url: paper.url,
-    pool,
-    influential: extra?.influential,
-  };
-}
-
-function rank(cands: Candidate[]) {
-  return [...cands].sort((a, b) => {
-    const inf = Number(Boolean(b.influential)) - Number(Boolean(a.influential));
-    if (inf) return inf;
-    return (b.citationCount ?? 0) - (a.citationCount ?? 0);
-  });
-}
-
-function unique(cands: Candidate[], exclude: Set<string>) {
-  const seen = new Set(exclude);
-  const out: Candidate[] = [];
-  for (const c of cands) {
-    if (seen.has(c.id) || seen.has(c.paperId)) continue;
-    seen.add(c.id);
-    seen.add(c.paperId);
-    out.push(c);
-  }
-  return out;
 }
 
 function fallbackUnderstanding(paper: S2Paper) {
@@ -178,99 +130,57 @@ function paperFromArxiv(id: string, title: string, authors: string[], summary: s
   };
 }
 
-export async function getNeighborhood(id: string) {
-  const cached = await readBrief(id);
-  if (cached && (cached.builtOn.length || cached.then.length)) {
-    return {
-      builtOn: cached.builtOn,
-      similar: cached.similar,
-      then: cached.then,
-    };
-  }
-  try {
-    const graph = await s2Neighborhood(s2LookupId(id));
-    const self = new Set(
-      [id, graph.paper.paperId, arxivOf(graph.paper)].filter(Boolean) as string[],
-    );
-    const builtPool = unique(
-      graph.references
-        .map((p) => toCandidate(p, "reference"))
-        .filter(Boolean) as Candidate[],
-      self,
-    );
-    const thenPool = unique(
-      rank(
-        graph.citations
-          .map((p) => toCandidate(p, "citation"))
-          .filter(Boolean) as Candidate[],
-      ),
-      self,
-    );
-    const similarPool = unique(builtPool.slice(3, 9), self);
-    return {
-      builtOn: pickNeighbors(undefined, builtPool, builtPool),
-      similar: pickNeighbors(undefined, similarPool, similarPool),
-      then: pickNeighbors(undefined, thenPool, thenPool),
-    };
-  } catch {
-    return { builtOn: [], similar: [], then: [] };
-  }
+export async function getNeighborhood(id: string, paperYear?: number) {
+  const refs = await extractRefs(id);
+  return classifyRefs(refs, paperYear);
 }
 
 export async function generateBrief(
   id: string,
   auth?: LlmAuth,
 ): Promise<Brief> {
-  const lookup = s2LookupId(id);
-  let paper: S2Paper;
-  let refs: S2Paper[] = [];
-  let cites: S2Paper[] = [];
-  try {
-    const graph = await s2Neighborhood(lookup);
-    paper = graph.paper;
-    refs = graph.references;
-    cites = graph.citations;
-  } catch {
-    const ax = await getArxiv(id);
-    paper = paperFromArxiv(
-      ax.id,
-      ax.title,
-      ax.authors,
-      ax.summary,
-      ax.year,
-      ax.doi,
-      ax.pdfUrl,
-    );
-  }
-  const canonical = canonicalPaperId({
-    arxivId: arxivOf(paper) || (id.match(/^\d{4}\.\d{4,5}$/) ? id : undefined),
-    paperId: paper.paperId,
-  });
-
-  const self = new Set(
-    [canonical, paper.paperId, arxivOf(paper)].filter(Boolean) as string[],
+  const ax = await getArxiv(id);
+  const paper = paperFromArxiv(
+    ax.id,
+    ax.title,
+    ax.authors,
+    ax.summary,
+    ax.year,
+    ax.doi,
+    ax.pdfUrl,
   );
-
-  // Bibliography order beats citation-count for lineage.
-  const builtPool = unique(
-    refs
-      .map((p) => toCandidate(p, "reference"))
-      .filter(Boolean) as Candidate[],
-    self,
-  );
-  const thenRanked = rank(
-    cites
-      .map((p) => toCandidate(p, "citation"))
-      .filter(Boolean) as Candidate[],
-  );
-  const thenMeaningful = thenRanked.filter(
-    (c) => c.influential || (c.citationCount ?? 0) > 0,
-  );
-  const thenPool = unique(
-    thenMeaningful.length ? thenMeaningful : thenRanked,
-    self,
-  );
-  const similarPool = unique(builtPool.slice(3, 9), self);
+  const hood = await getNeighborhood(ax.id, ax.year);
+  const canonical = ax.id;
+  const builtPool: Candidate[] = hood.builtOn.map((n) => ({
+    id: n.id,
+    paperId: n.id,
+    title: n.title,
+    year: n.year,
+    authors: n.authors,
+    arxivId: n.arxivId,
+    url: n.url,
+    pool: "reference" as const,
+  }));
+  const similarPool: Candidate[] = hood.similar.map((n) => ({
+    id: n.id,
+    paperId: n.id,
+    title: n.title,
+    year: n.year,
+    authors: n.authors,
+    arxivId: n.arxivId,
+    url: n.url,
+    pool: "related" as const,
+  }));
+  const thenPool: Candidate[] = hood.then.map((n) => ({
+    id: n.id,
+    paperId: n.id,
+    title: n.title,
+    year: n.year,
+    authors: n.authors,
+    arxivId: n.arxivId,
+    url: n.url,
+    pool: "citation" as const,
+  }));
 
   const fallback = fallbackUnderstanding(paper);
   let llm: LlmOut | null = null;

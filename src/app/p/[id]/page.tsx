@@ -1,4 +1,4 @@
-import { Neighborhood } from "@/components/neighborhood";
+import { NeighborList } from "@/components/neighbor-list";
 import { RewriteButton } from "@/components/rewrite-button";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -7,6 +7,7 @@ import {
   getArxiv,
 } from "@/lib/arxiv";
 import { parseQuery } from "@/lib/parse";
+import { classifyRefs, extractRefs } from "@/lib/refs";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -42,11 +43,13 @@ export default async function PaperPage({
   const { id } = await params;
   if (!parseQuery(id).arxivId && !/^\d{4}\.\d{4,5}$/.test(id)) notFound();
   let paper;
+  let refs;
   try {
-    paper = await getArxiv(id);
+    [paper, refs] = await Promise.all([getArxiv(id), extractRefs(id)]);
   } catch {
     notFound();
   }
+  const hood = classifyRefs(refs, paper.year);
 
   const claim = claimFromAbstract(paper.summary);
   const how = bulletsFromAbstract(paper.summary);
@@ -116,7 +119,11 @@ export default async function PaperPage({
 
           <section className="pb-20">
             <div className="mx-auto max-w-5xl px-6">
-              <Neighborhood id={paper.id} />
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                <NeighborList heading="Built on" items={hood.builtOn} />
+                <NeighborList heading="Similar" items={hood.similar} />
+                <NeighborList heading="Then" items={hood.then} />
+              </div>
             </div>
           </section>
         </article>
