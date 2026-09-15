@@ -2,11 +2,15 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Brief } from "./types";
 
-const dir = path.join(process.cwd(), ".data", "briefs");
+function briefsDir() {
+  const volume = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+  if (volume) return path.join(volume, "briefs");
+  return path.join(process.cwd(), ".data", "briefs");
+}
 
 function fileFor(id: string) {
   const safe = id.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return path.join(dir, `${safe}.json`);
+  return path.join(briefsDir(), `${safe}.json`);
 }
 
 export async function readBrief(id: string): Promise<Brief | null> {
@@ -19,6 +23,6 @@ export async function readBrief(id: string): Promise<Brief | null> {
 }
 
 export async function writeBrief(brief: Brief) {
-  await mkdir(dir, { recursive: true });
+  await mkdir(briefsDir(), { recursive: true });
   await writeFile(fileFor(brief.id), JSON.stringify(brief, null, 2));
 }

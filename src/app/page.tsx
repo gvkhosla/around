@@ -42,17 +42,16 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            {handle ? (
-              <p className="mt-10 max-w-[48ch] text-base text-pretty text-neutral-600 sm:text-sm">
-                Or tag @{handle} in a reply to a paper. The bot sends back this
-                page.
-              </p>
-            ) : (
-              <p className="mt-10 max-w-[48ch] text-base text-pretty text-neutral-600 sm:text-sm">
-                Pages are shareable. An X bot can reply with the link once you
-                add API keys.
-              </p>
-            )}
+            <p className="mt-10 max-w-[48ch] text-base text-pretty text-neutral-600 sm:text-sm">
+              Connect ChatGPT or your own key in{" "}
+              <Link href="/settings" className="text-teal-800 hover:text-teal-950">
+                settings
+              </Link>
+              . Neighborhood works either way.
+              {handle
+                ? ` Tag @${handle} in a reply to get this page back.`
+                : ""}
+            </p>
           </div>
         </section>
       </main>

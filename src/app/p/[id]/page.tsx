@@ -1,3 +1,4 @@
+import { RewriteButton } from "@/components/rewrite-button";
 import { SiteHeader } from "@/components/site-header";
 import { getBrief } from "@/lib/brief";
 import type { Neighbor } from "@/lib/types";
@@ -196,6 +197,7 @@ export default async function PaperPage({
                   </a>
                 </li>
               </ul>
+              <RewriteButton id={brief.id} />
             </div>
           </section>
 

@@ -1,3 +1,6 @@
+import type { LlmAuth } from "./auth";
+import { completeJsonWithCodex } from "./codex";
+
 type ChatJson = {
   choices?: { message?: { content?: string } }[];
 };
@@ -14,6 +17,45 @@ function extractJson(text: string) {
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = fenced?.[1] ?? trimmed;
   return JSON.parse(raw) as unknown;
+}
+
+function targetFromByok(auth: Extract<LlmAuth, { kind: "byok" }>): Target {
+  const key = auth.apiKey;
+  const custom = auth.baseUrl?.replace(/\/$/, "");
+  if (custom) {
+    return {
+      url: `${custom}/chat/completions`,
+      model: auth.model || "local",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      jsonMode: true,
+    };
+  }
+  if (key.startsWith("sk-or-")) {
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: auth.model || "google/gemini-2.5-flash",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        "HTTP-Referer":
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
+        "X-Title": "Around",
+      },
+      jsonMode: true,
+    };
+  }
+  return {
+    url: "https://api.openai.com/v1/chat/completions",
+    model: auth.model || "gpt-4o-mini",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    jsonMode: true,
+  };
 }
 
 function resolveTarget(): Target | null {
@@ -64,10 +106,7 @@ function resolveTarget(): Target | null {
   return null;
 }
 
-export async function completeJson(prompt: string): Promise<unknown | null> {
-  const target = resolveTarget();
-  if (!target) return null;
-
+async function completeChat(target: Target, prompt: string) {
   const payload = (jsonMode: boolean) => {
     const body: Record<string, unknown> = {
       model: target.model,
@@ -114,4 +153,16 @@ export async function completeJson(prompt: string): Promise<unknown | null> {
   } catch {
     return null;
   }
+}
+
+export async function completeJson(
+  prompt: string,
+  auth?: LlmAuth,
+): Promise<unknown | null> {
+  if (auth?.kind === "codex") {
+    return completeJsonWithCodex(prompt, auth);
+  }
+  const target = auth?.kind === "byok" ? targetFromByok(auth) : resolveTarget();
+  if (!target) return null;
+  return completeChat(target, prompt);
 }

@@ -1,16 +1,47 @@
 "use client";
 
 import { ArrowRightIcon } from "@heroicons/react/16/solid";
-import { useActionState } from "react";
-import { aroundPaper, type AroundState } from "@/lib/actions";
-
-const initial: AroundState = {};
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { authHeaders } from "@/lib/client-auth";
 
 export function PaperForm() {
-  const [state, action, pending] = useActionState(aroundPaper, initial);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const q = String(new FormData(form).get("q") ?? "").trim();
+    if (!q) {
+      setError("Paste an arXiv, DOI, AlphaXiv, or tweet link.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/brief", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await authHeaders()),
+        },
+        body: JSON.stringify({ q }),
+      });
+      const data = (await res.json()) as { id?: string; error?: string };
+      if (!res.ok || !data.id) {
+        throw new Error(data.error || "Could not find a paper in that.");
+      }
+      router.push(`/p/${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lookup failed.");
+      setPending(false);
+    }
+  }
 
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row">
         <input
           id="q"
@@ -36,9 +67,9 @@ export function PaperForm() {
           />
         </button>
       </div>
-      {state.error ? (
+      {error ? (
         <p className="text-base text-pretty text-red-800 sm:text-sm" role="alert">
-          {state.error}
+          {error}
         </p>
       ) : null}
     </form>

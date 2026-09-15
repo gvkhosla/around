@@ -1,4 +1,5 @@
 import { cache } from "react";
+import type { LlmAuth } from "./auth";
 import { readBrief, writeBrief } from "./cache";
 import { completeJson } from "./llm";
 import { openAlexByArxiv, openAlexByDoi } from "./openalex";
@@ -176,14 +177,25 @@ export async function resolvePaperId(input: string): Promise<string | null> {
 }
 
 export const getBrief = cache(async (id: string): Promise<Brief> => {
-  const cached = await readBrief(id);
-  if (cached) return cached;
-  const brief = await generateBrief(id);
-  await writeBrief(brief);
-  return brief;
+  return loadBrief(id);
 });
 
-export async function generateBrief(id: string): Promise<Brief> {
+export async function loadBrief(
+  id: string,
+  auth?: LlmAuth,
+  refresh = false,
+): Promise<Brief> {
+  const cached = await readBrief(id);
+  if (cached && !refresh && (cached.usedLlm || !auth)) return cached;
+  const brief = await generateBrief(id, auth);
+  await writeBrief(brief);
+  return brief;
+}
+
+export async function generateBrief(
+  id: string,
+  auth?: LlmAuth,
+): Promise<Brief> {
   const lookup = s2LookupId(id);
   const paper = await s2Paper(lookup);
   const canonical = canonicalPaperId({
@@ -278,6 +290,7 @@ export async function generateBrief(id: string): Promise<Brief> {
         null,
         2,
       ),
+      auth,
     )) as LlmOut | null;
     if (out && typeof out === "object") {
       llm = out;

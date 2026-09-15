@@ -2,7 +2,7 @@
 
 Paste a paper link. Get the claim, the lineage, and what to read next.
 
-Neighborhood comes from [Semantic Scholar](https://www.semanticscholar.org/product/api) and [OpenAlex](https://openalex.org). An LLM ranks the 3+3+3 and writes the orientation. Default model is Gemini 2.5 Flash via OpenRouter. Any OpenAI-compatible server works (Ollama, LM Studio).
+Neighborhood comes from [Semantic Scholar](https://www.semanticscholar.org/product/api) and [OpenAlex](https://openalex.org). Generation is optional: connect ChatGPT Plus/Pro (Codex login) or paste your own API key. Tokens stay in the browser. Without a model, the neighborhood still works.
 
 ## Run
 
@@ -18,20 +18,16 @@ Shareable pages live at `/p/{arxiv-id}`. First visit is slow (API + model). Afte
 
 ## Model
 
-Cloud default: `google/gemini-2.5-flash` on OpenRouter. Do not use a reasoning model for this.
+Open `/settings` on the live site.
 
-Local (Ollama example):
+- **Log in with ChatGPT** — Codex device login, same path Amp uses. Hits your Plus/Pro quota.
+- **Bring your own key** — OpenAI `sk-`, OpenRouter `sk-or-`, or a local base URL such as `http://localhost:11434/v1`.
 
-```bash
-ollama pull qwen2.5:14b
-```
+A server-side `OPENROUTER_API_KEY` still works for private deploys. Do not put your own key on the public app.
 
-```
-LLM_BASE_URL=http://localhost:11434/v1
-LLM_MODEL=qwen2.5:14b
-```
+## Deploy
 
-LM Studio is usually `http://localhost:1234/v1`. If the server rejects `response_format`, set `LLM_JSON_MODE=0`.
+Railway. `bun run start` listens on `PORT`. Briefs cache under `RAILWAY_VOLUME_MOUNT_PATH` if a volume is attached.
 
 ## X bot
 
