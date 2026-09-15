@@ -39,18 +39,20 @@ export function NeighborList({
                     <Link href={href} className="hover:text-teal-800">
                       {title}
                     </Link>
-                  ) : paper.url ? (
-                    <a
-                      href={paper.url}
-                      className="hover:text-teal-800"
-                      rel="noreferrer"
-                    >
-                      {title}
-                    </a>
                   ) : (
                     title
                   )}
                 </p>
+                {paper.arxivId ? (
+                  <p className="mt-1 text-base sm:text-sm">
+                    <a
+                      href={`https://arxiv.org/abs/${paper.arxivId}`}
+                      className="text-teal-800 hover:text-teal-950"
+                    >
+                      Original
+                    </a>
+                  </p>
+                ) : null}
                 <p className="mt-1 text-base text-neutral-500 sm:text-sm">
                   {[paper.authors, paper.year].filter(Boolean).join(" · ")}
                   {typeof paper.citationCount === "number" ? (

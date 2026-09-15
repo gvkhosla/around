@@ -256,8 +256,6 @@ export async function generateBrief(
     abstract: paper.abstract ?? undefined,
     arxivId: arxivOf(paper),
     doi: paper.externalIds?.DOI,
-    s2Url: paper.url,
-    openAlexUrl: undefined,
     pdfUrl:
       paper.openAccessPdf?.url ||
       (arxivOf(paper) ? `https://arxiv.org/pdf/${arxivOf(paper)}` : undefined),

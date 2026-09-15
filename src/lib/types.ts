@@ -34,8 +34,6 @@ export type Brief = {
   abstract?: string;
   arxivId?: string;
   doi?: string;
-  s2Url?: string;
-  openAlexUrl?: string;
   pdfUrl?: string;
   claim: string;
   how: string[];

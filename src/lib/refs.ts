@@ -25,11 +25,12 @@ function parseBib(html: string): ExtractedRef[] {
     const blocks = [...chunk.matchAll(/class="ltx_bibblock"[^>]*>([\s\S]*?)<\/span>/g)].map(
       (m) => text(m[1]),
     );
-    const blob = text(chunk.slice(0, 800));
+    const blob = text(chunk.slice(0, 1200));
     const title = (blocks[1] || blocks[0] || "").replace(/\.$/, "");
     if (!title || title.length < 8) continue;
     const authors = blocks[0] && blocks[1] ? blocks[0].replace(/\.$/, "") : "";
     const arxivId =
+      chunk.match(/arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})/i)?.[1] ||
       blob.match(/arXiv:(\d{4}\.\d{4,5})/i)?.[1] ||
       blob.match(/abs\/(\d{4}\.\d{4,5})/i)?.[1];
     const years = [...blob.matchAll(/\b((?:19|20)\d{2})\b/g)].map((m) => Number(m[1]));

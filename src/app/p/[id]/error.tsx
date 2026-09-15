@@ -18,7 +18,9 @@ export default function PaperError({
           Could not load that paper.
         </h1>
         <p className="mt-4 max-w-[48ch] text-base text-pretty text-neutral-600">
-          {error.message || "Semantic Scholar or OpenAlex did not respond."}
+          {error.message && !/semantic|openalex/i.test(error.message)
+            ? error.message
+            : "arXiv did not respond."}
         </p>
         <div className="mt-6 flex gap-4 text-base sm:text-sm">
           <button

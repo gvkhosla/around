@@ -68,20 +68,18 @@ async function fromAlphaXiv(): Promise<string[]> {
 }
 
 async function titlesFor(ids: string[]): Promise<Map<string, string>> {
+  const { getArxiv } = await import("./arxiv");
   const map = new Map<string, string>();
-  if (!ids.length) return map;
-  try {
-    const res = await fetch(
-      `https://export.arxiv.org/api/query?id_list=${ids.join(",")}&max_results=${ids.length}`,
-      { headers: { "User-Agent": "around" }, next: { revalidate: 600 } },
-    );
-    if (!res.ok) return map;
-    for (const paper of parseAtom(await res.text())) {
-      map.set(paper.id, paper.title);
-    }
-  } catch {
-    /* ignore */
-  }
+  await Promise.all(
+    ids.slice(0, 12).map(async (id) => {
+      try {
+        const paper = await getArxiv(id);
+        map.set(paper.id, paper.title);
+      } catch {
+        /* skip */
+      }
+    }),
+  );
   return map;
 }
 

@@ -10,7 +10,7 @@ export default function NotFoundPaper() {
           No paper there.
         </h1>
         <p className="mt-4 max-w-[48ch] text-base text-pretty text-neutral-600">
-          Semantic Scholar did not recognize that id. Try an arXiv abs link.
+          arXiv does not have that id.
         </p>
         <p className="mt-6 text-base sm:text-sm">
           <Link href="/" className="text-teal-800 hover:text-teal-950">
