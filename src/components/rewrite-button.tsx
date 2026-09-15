@@ -10,7 +10,7 @@ export function RewriteButton({ id }: { id: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (status === "Heuristic") return null;
+  if (status === "Connect") return null;
 
   async function rewrite() {
     setPending(true);

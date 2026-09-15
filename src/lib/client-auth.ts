@@ -62,13 +62,13 @@ export function writeCodex(value: CodexStore | null) {
 }
 
 export function modelStatus() {
-  if (readByok()?.apiKey) return "API key";
+  if (readByok()?.apiKey) return "Your key";
   if (readCodex()) return "ChatGPT";
-  return "Heuristic";
+  return "Connect";
 }
 
 export function useModelStatus() {
-  return useSyncExternalStore(subscribeAuth, modelStatus, () => "Heuristic");
+  return useSyncExternalStore(subscribeAuth, modelStatus, () => "Connect");
 }
 
 export function useByok() {

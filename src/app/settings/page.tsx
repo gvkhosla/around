@@ -12,8 +12,8 @@ export default function SettingsPage() {
               Your model.
             </h1>
             <p className="mt-4 max-w-[48ch] text-base text-pretty text-neutral-600">
-              Around does not pay for generation. Connect ChatGPT Plus/Pro or
-              paste your own key. Tokens stay in this browser.
+              Optional. Connect ChatGPT or paste a key if you want sharper
+              writeups. Tokens stay in this browser.
             </p>
             <div className="mt-10 max-w-xl">
               <SettingsForm />

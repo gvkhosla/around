@@ -64,8 +64,8 @@ export default async function PaperPage({
         <article>
           <section className="pt-10 pb-8 sm:pt-14">
             <div className="mx-auto max-w-5xl px-6">
-              <p className="font-mono text-base tracking-wide text-neutral-500 uppercase sm:text-sm">
-                {paper.year ? `arXiv · ${paper.year}` : "arXiv"}
+              <p className="font-mono text-base tracking-wide text-neutral-500 sm:text-sm">
+                {paper.year ?? "Paper"}
               </p>
               <h1 className="mt-3 max-w-[35ch] text-4xl font-semibold tracking-tight text-balance">
                 {paper.title}
@@ -77,14 +77,6 @@ export default async function PaperPage({
                 role="list"
                 className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-base sm:text-sm"
               >
-                <li>
-                  <a
-                    href={paper.absUrl}
-                    className="text-teal-800 hover:text-teal-950"
-                  >
-                    arXiv
-                  </a>
-                </li>
                 <li>
                   <a
                     href={paper.pdfUrl}

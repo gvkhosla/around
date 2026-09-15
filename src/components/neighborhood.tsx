@@ -35,7 +35,7 @@ export function Neighborhood({ id }: { id: string }) {
   if (failed) {
     return (
       <p className="text-base text-pretty text-neutral-600 sm:text-sm">
-        Neighborhood is busy. The paper above is still the paper.
+        Nearby papers did not load. The paper above is still here.
       </p>
     );
   }

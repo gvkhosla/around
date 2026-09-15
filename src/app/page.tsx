@@ -1,67 +1,57 @@
 import { PaperForm } from "@/components/paper-form";
 import { SiteHeader } from "@/components/site-header";
+import { getLatestPapers } from "@/lib/latest";
 import Link from "next/link";
 
-const examples = [
-  { id: "1706.03762", title: "Attention Is All You Need" },
-  { id: "2106.09685", title: "LoRA" },
-  { id: "2501.12948", title: "DeepSeek-R1" },
-];
+export const dynamic = "force-dynamic";
+export const revalidate = 600;
 
-export default function Home() {
-  const handle = process.env.NEXT_PUBLIC_X_HANDLE;
+export default async function Home() {
+  const latest = await getLatestPapers();
 
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <main className="flex flex-1 flex-col">
-        <section className="pt-16 pb-16 sm:pt-24">
+        <section className="pt-16 pb-10 sm:pt-24">
           <div className="mx-auto max-w-5xl px-6">
             <div>
-              <h1 className="max-w-[30ch] text-5xl font-semibold tracking-tight text-balance">
+              <h1 className="max-w-[20ch] text-5xl font-semibold tracking-tight text-balance">
                 Around this paper.
               </h1>
               <p className="mt-5 max-w-[48ch] text-lg text-pretty text-neutral-600">
-                Paste an arXiv link, or put this site in front of one.
+                See what a paper sits on, what’s next to it, and what came after.
               </p>
             </div>
             <div className="mt-10 max-w-xl">
               <PaperForm />
             </div>
-            <ul role="list" className="mt-8 flex flex-col gap-2">
-              {examples.map((paper) => (
-                <li key={paper.id} className="text-base sm:text-sm">
-                  <Link
-                    href={`/p/${paper.id}`}
-                    className="text-teal-800 hover:text-teal-950"
-                  >
-                    {paper.title}
-                  </Link>
-                  <span className="text-neutral-500"> {paper.id}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-10 max-w-[56ch] text-base text-pretty text-neutral-600 sm:text-sm">
-              Prefix any arXiv URL with this site, then hit enter. Connect
-              ChatGPT or your own key in{" "}
-              <Link href="/settings" className="text-teal-800 hover:text-teal-950">
-                settings
-              </Link>
-              .
-              {handle
-                ? ` Tag @${handle} in a reply to get this page back.`
-                : ""}
-            </p>
+          </div>
+        </section>
+        <section className="pb-20">
+          <div className="mx-auto max-w-5xl px-6">
+            <h2 className="text-base font-medium tracking-tight">Latest</h2>
+            {latest.length === 0 ? (
+              <p className="mt-4 text-base text-pretty text-neutral-600 sm:text-sm">
+                Nothing loaded yet. Paste a paper above.
+              </p>
+            ) : (
+              <ul role="list" className="mt-6 divide-y divide-neutral-950/10">
+                {latest.map((paper) => (
+                  <li key={paper.id} className="py-4 first:pt-0">
+                    <Link
+                      href={`/p/${paper.id}`}
+                      className="text-base text-pretty text-neutral-950 hover:text-teal-800 sm:text-sm"
+                    >
+                      {paper.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       </main>
-      <footer>
-        <div className="mx-auto max-w-5xl px-6 py-8">
-          <p className="text-base text-neutral-500 sm:text-sm">
-            Neighborhood from Semantic Scholar and OpenAlex. Not affiliated.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
