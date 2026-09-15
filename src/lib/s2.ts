@@ -27,6 +27,7 @@ const LIST_FIELDS = [
 ].join(",");
 
 let queue: Promise<unknown> = Promise.resolve();
+let lastAt = 0;
 
 function gap() {
   return process.env.S2_API_KEY || process.env.SEMANTIC_SCHOLAR_API_KEY
@@ -36,7 +37,9 @@ function gap() {
 
 async function s2Fetch<T>(path: string): Promise<T> {
   const run = queue.then(async () => {
-    await new Promise((r) => setTimeout(r, gap()));
+    const wait = lastAt === 0 ? 0 : gap() - (Date.now() - lastAt);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastAt = Date.now();
     const url = path.startsWith("http") ? path : `${BASE}${path}`;
     const headers: Record<string, string> = {
       "User-Agent": "around (paper neighborhood)",

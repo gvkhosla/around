@@ -14,7 +14,11 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000). Try `1706.03762`.
 
-Shareable pages live at `/p/{arxiv-id}`. First visit is slow (API + model). After that it is cached in `.data/briefs`.
+Put this site in front of any arXiv URL:
+
+`https://around-production-b86e.up.railway.app/https://arxiv.org/abs/1706.03762`
+
+Shareable pages live at `/p/{arxiv-id}`. First visit hits Semantic Scholar; after that it is cached.
 
 ## Model
 

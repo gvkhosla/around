@@ -22,8 +22,7 @@ export default function Home() {
                 Around this paper.
               </h1>
               <p className="mt-5 max-w-[48ch] text-lg text-pretty text-neutral-600">
-                Paste an arXiv, DOI, AlphaXiv, or tweet link. Get the claim, the
-                lineage, and what to read next.
+                Paste an arXiv link, or put this site in front of one.
               </p>
             </div>
             <div className="mt-10 max-w-xl">
@@ -42,12 +41,13 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <p className="mt-10 max-w-[48ch] text-base text-pretty text-neutral-600 sm:text-sm">
-              Connect ChatGPT or your own key in{" "}
+            <p className="mt-10 max-w-[56ch] text-base text-pretty text-neutral-600 sm:text-sm">
+              Prefix any arXiv URL with this site, then hit enter. Connect
+              ChatGPT or your own key in{" "}
               <Link href="/settings" className="text-teal-800 hover:text-teal-950">
                 settings
               </Link>
-              . Neighborhood works either way.
+              .
               {handle
                 ? ` Tag @${handle} in a reply to get this page back.`
                 : ""}

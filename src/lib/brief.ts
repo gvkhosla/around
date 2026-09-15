@@ -2,21 +2,13 @@ import { cache } from "react";
 import type { LlmAuth } from "./auth";
 import { readBrief, writeBrief } from "./cache";
 import { completeJson } from "./llm";
-import { openAlexByArxiv, openAlexByDoi } from "./openalex";
 import {
   canonicalPaperId,
   parseQuery,
   s2LookupId,
   stripArxivVersion,
 } from "./parse";
-import {
-  s2Citations,
-  s2Paper,
-  s2Recommendations,
-  s2References,
-  s2Search,
-} from "./s2";
-import { paperTextFromTweet } from "./tweet";
+import { s2Citations, s2Paper, s2References } from "./s2";
 import type { Brief, Candidate, Neighbor, S2Paper } from "./types";
 
 function authorLine(paper: S2Paper) {
@@ -154,26 +146,7 @@ function pickNeighbors(
 }
 
 export async function resolvePaperId(input: string): Promise<string | null> {
-  const parsed = parseQuery(input);
-  if (parsed.arxivId) return parsed.arxivId;
-  if (parsed.tweetId) {
-    const fromTweet = await paperTextFromTweet(parsed.tweetId);
-    if (fromTweet) return resolvePaperId(fromTweet);
-  }
-  if (parsed.doi) {
-    try {
-      const paper = await s2Paper(`DOI:${parsed.doi}`);
-      return canonicalPaperId({
-        arxivId: arxivOf(paper),
-        paperId: paper.paperId,
-      });
-    } catch {
-      /* search fallback */
-    }
-  }
-  const hit = await s2Search(parsed.raw);
-  if (!hit) return null;
-  return canonicalPaperId({ arxivId: arxivOf(hit), paperId: hit.paperId });
+  return parseQuery(input).arxivId ?? null;
 }
 
 export const getBrief = cache(async (id: string): Promise<Brief> => {
@@ -203,17 +176,11 @@ export async function generateBrief(
     paperId: paper.paperId,
   });
 
-  const [refs, cites, recs] = await Promise.all([
-    s2References(lookup),
-    s2Citations(lookup),
-    s2Recommendations(lookup),
+  const [refs, cites] = await Promise.all([
+    s2References(lookup, 12),
+    s2Citations(lookup, 12),
   ]);
 
-  const oa = paper.externalIds?.DOI
-    ? await openAlexByDoi(paper.externalIds.DOI)
-    : arxivOf(paper)
-      ? await openAlexByArxiv(arxivOf(paper)!)
-      : null;
   const self = new Set(
     [canonical, paper.paperId, arxivOf(paper)].filter(Boolean) as string[],
   );
@@ -239,12 +206,7 @@ export async function generateBrief(
     thenMeaningful.length ? thenMeaningful : thenRanked,
     self,
   );
-  const similarPool = unique(
-    recs
-      .map((p) => toCandidate(p, "recommendation"))
-      .filter(Boolean) as Candidate[],
-    self,
-  );
+  const similarPool = unique(builtPool.slice(3, 9), self);
 
   const fallback = fallbackUnderstanding(paper);
   let llm: LlmOut | null = null;
@@ -261,7 +223,13 @@ export async function generateBrief(
       influential: c.influential || undefined,
     }));
 
-  try {
+  const hasModel =
+    Boolean(auth) ||
+    Boolean(process.env.OPENROUTER_API_KEY) ||
+    Boolean(process.env.OPENAI_API_KEY) ||
+    Boolean(process.env.LLM_BASE_URL);
+
+  if (hasModel) try {
     const out = (await completeJson(
       JSON.stringify(
         {
@@ -315,7 +283,7 @@ export async function generateBrief(
     arxivId: arxivOf(paper),
     doi: paper.externalIds?.DOI,
     s2Url: paper.url,
-    openAlexUrl: oa?.id,
+    openAlexUrl: undefined,
     pdfUrl:
       paper.openAccessPdf?.url ||
       (arxivOf(paper) ? `https://arxiv.org/pdf/${arxivOf(paper)}` : undefined),
