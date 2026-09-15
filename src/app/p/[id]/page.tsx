@@ -1,3 +1,4 @@
+import { AlphaXivDiscovery } from "@/components/alphaxiv-discovery";
 import { NeighborList } from "@/components/neighbor-list";
 import { RewriteButton } from "@/components/rewrite-button";
 import { SiteHeader } from "@/components/site-header";
@@ -131,6 +132,9 @@ async function PaperAround({ id }: { id: string }) {
           <NeighborList heading="Built on" items={hood.builtOn} />
           <NeighborList heading="Similar" items={hood.similar} />
           <NeighborList heading="Then" items={hood.then} />
+        </div>
+        <div className="mt-12">
+          <AlphaXivDiscovery id={paper.id} />
         </div>
       </div>
     </section>

@@ -12,8 +12,9 @@ export default function SettingsPage() {
               Your model.
             </h1>
             <p className="mt-4 max-w-[48ch] text-base text-pretty text-neutral-600">
-              Optional. Connect ChatGPT or paste a key if you want sharper
-              writeups. Tokens stay in this browser.
+              Connect alphaXiv for deeper discovery, or a model for sharper
+              writeups. Credentials are stored in this browser and sent only
+              when needed.
             </p>
             <div className="mt-10 max-w-xl">
               <SettingsForm />

@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 
 export const BYOK_KEY = "around.byok";
 export const CODEX_KEY = "around.codex";
+export const ALPHAXIV_KEY = "around.alphaxiv";
 
 export type ByokStore = {
   apiKey: string;
@@ -59,6 +60,25 @@ export function writeCodex(value: CodexStore | null) {
   if (value) localStorage.setItem(CODEX_KEY, JSON.stringify(value));
   else localStorage.removeItem(CODEX_KEY);
   emit();
+}
+
+export function readAlphaXivKey() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(ALPHAXIV_KEY) || "";
+}
+
+export function writeAlphaXivKey(value: string) {
+  if (value) localStorage.setItem(ALPHAXIV_KEY, value);
+  else localStorage.removeItem(ALPHAXIV_KEY);
+  emit();
+}
+
+export function alphaXivStatus() {
+  return readAlphaXivKey() ? "Connected" : "Connect";
+}
+
+export function useAlphaXivStatus() {
+  return useSyncExternalStore(subscribeAuth, alphaXivStatus, () => "Connect");
 }
 
 export function modelStatus() {

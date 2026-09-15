@@ -15,7 +15,9 @@ cp .env.example .env.local
 bun dev
 ```
 
-Optional: connect ChatGPT or paste an API key in `/settings` for sharper writeups.
+Optional: connect alphaXiv in `/settings` for related and follow-up discovery. Connect ChatGPT or paste a model API key for sharper writeups.
+
+A deployment can provide `ALPHAXIV_API_KEY` to enable deeper discovery for everyone. Around calls the authenticated MCP endpoint from the server; browser-stored keys are sent per request and are not persisted by Around.
 
 ## Deploy
 

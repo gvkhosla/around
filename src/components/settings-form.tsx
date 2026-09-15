@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import {
+  useAlphaXivStatus,
   useByok,
   useCodex,
+  writeAlphaXivKey,
   writeByok,
   writeCodex,
   type CodexStore,
@@ -12,7 +14,9 @@ import {
 export function SettingsForm() {
   const storedByok = useByok();
   const codex = useCodex();
+  const alphaXivStatus = useAlphaXivStatus();
   const [apiKey, setApiKey] = useState("");
+  const [alphaXivKey, setAlphaXivKey] = useState("");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [device, setDevice] = useState<{
@@ -38,6 +42,15 @@ export function SettingsForm() {
     writeCodex(null);
     setApiKey("");
     setMessage("Key saved in this browser.");
+  }
+
+  function saveAlphaXivKey(event: React.FormEvent) {
+    event.preventDefault();
+    const key = alphaXivKey.trim();
+    if (!key) return;
+    writeAlphaXivKey(key);
+    setAlphaXivKey("");
+    setMessage("alphaXiv connected in this browser.");
   }
 
   async function connectChatgpt() {
@@ -155,6 +168,63 @@ export function SettingsForm() {
       </section>
 
       <section>
+        <h2 className="text-base font-medium tracking-tight">alphaXiv discovery</h2>
+        <p
+          id="alphaxiv-help"
+          className="mt-2 text-base text-pretty text-neutral-600 sm:text-sm"
+        >
+          Finds related and follow-up papers beyond the bibliography. Create a
+          key from alphaXiv Settings → API Keys. It is stored in this browser
+          and sent to Around only for discovery.
+          {alphaXivStatus === "Connected" ? " A key is connected." : ""}
+        </p>
+        <form onSubmit={saveAlphaXivKey} className="mt-4 flex flex-col gap-3">
+          <input
+            name="alphaXivKey"
+            type="password"
+            required
+            autoComplete="off"
+            aria-label="alphaXiv API key"
+            aria-describedby="alphaxiv-help"
+            placeholder="alphaXiv API key"
+            value={alphaXivKey}
+            onChange={(event) => setAlphaXivKey(event.target.value)}
+            className={inputClass}
+          />
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              className="rounded-lg px-3 py-2 text-base text-teal-800 ring-1 ring-neutral-950/10 hover:text-teal-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 sm:text-sm"
+            >
+              Save alphaXiv key
+            </button>
+            {alphaXivStatus === "Connected" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  writeAlphaXivKey("");
+                  setMessage("alphaXiv disconnected.");
+                }}
+                className="rounded-lg px-3 py-2 text-base text-neutral-600 hover:text-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 sm:text-sm"
+              >
+                Disconnect
+              </button>
+            ) : null}
+          </div>
+        </form>
+        <p className="mt-3 text-base sm:text-sm">
+          <a
+            href="https://www.alphaxiv.org/docs/mcp"
+            target="_blank"
+            rel="noreferrer"
+            className="text-teal-800 hover:text-teal-950"
+          >
+            Open alphaXiv setup guide
+          </a>
+        </p>
+      </section>
+
+      <section>
         <h2 className="text-base font-medium tracking-tight">Bring your own key</h2>
         <p className="mt-2 text-base text-pretty text-neutral-600 sm:text-sm">
           OpenAI (sk-), OpenRouter (sk-or-), or any OpenAI-compatible base URL.
@@ -199,7 +269,12 @@ export function SettingsForm() {
       </section>
 
       {message ? (
-        <p className="text-base text-pretty text-neutral-600 sm:text-sm">{message}</p>
+        <p
+          role="status"
+          className="text-base text-pretty text-neutral-600 sm:text-sm"
+        >
+          {message}
+        </p>
       ) : null}
     </div>
   );
