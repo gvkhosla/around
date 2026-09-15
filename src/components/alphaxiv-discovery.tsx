@@ -2,7 +2,7 @@
 
 import { NeighborList } from "@/components/neighbor-list";
 import { StatusLine } from "@/components/status-line";
-import { readAlphaXivKey } from "@/lib/client-auth";
+import { readAlphaXivKey, useAlphaXivStatus } from "@/lib/client-auth";
 import type { AlphaXivNeighborhood } from "@/lib/alphaxiv";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ type State =
   | { kind: "error"; message: string };
 
 export function AlphaXivDiscovery({ id }: { id: string }) {
+  const alphaXivStatus = useAlphaXivStatus();
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ kind: "loading" });
 
@@ -52,7 +53,7 @@ export function AlphaXivDiscovery({ id }: { id: string }) {
         });
       });
     return () => controller.abort();
-  }, [id, attempt]);
+  }, [id, attempt, alphaXivStatus]);
 
   return (
     <section className="border-t border-neutral-950/10 pt-8" aria-busy={state.kind === "loading"}>
