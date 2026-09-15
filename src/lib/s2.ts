@@ -18,7 +18,6 @@ const PAPER_FIELDS = [
 const LIST_FIELDS = [
   "paperId",
   "title",
-  "abstract",
   "year",
   "citationCount",
   "authors",
@@ -26,17 +25,33 @@ const LIST_FIELDS = [
   "url",
 ].join(",");
 
-let queue: Promise<unknown> = Promise.resolve();
+const GRAPH_FIELDS = [
+  PAPER_FIELDS,
+  `references.title`,
+  `references.year`,
+  `references.authors`,
+  `references.externalIds`,
+  `references.citationCount`,
+  `references.paperId`,
+  `citations.title`,
+  `citations.year`,
+  `citations.authors`,
+  `citations.externalIds`,
+  `citations.citationCount`,
+  `citations.paperId`,
+].join(",");
+
+let chain: Promise<unknown> = Promise.resolve();
 let lastAt = 0;
 
 function gap() {
   return process.env.S2_API_KEY || process.env.SEMANTIC_SCHOLAR_API_KEY
-    ? 120
-    : 1100;
+    ? 80
+    : 200;
 }
 
 async function s2Fetch<T>(path: string): Promise<T> {
-  const run = queue.then(async () => {
+  const run = chain.then(async () => {
     const wait = lastAt === 0 ? 0 : gap() - (Date.now() - lastAt);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     lastAt = Date.now();
@@ -49,28 +64,34 @@ async function s2Fetch<T>(path: string): Promise<T> {
       process.env.S2_API_KEY || process.env.SEMANTIC_SCHOLAR_API_KEY;
     if (key) headers["x-api-key"] = key;
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch(url, { headers, cache: "no-store" });
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        continue;
-      }
-      if (res.status === 404) {
-        throw new Error("Paper not found");
-      }
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Semantic Scholar ${res.status}: ${body.slice(0, 180)}`);
-      }
-      return (await res.json()) as T;
+    const res = await fetch(url, {
+      headers,
+      cache: "force-cache",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.status === 429) {
+      throw new Error("Semantic Scholar rate limited");
     }
-    throw new Error("Semantic Scholar rate limited");
+    if (res.status === 404) throw new Error("Paper not found");
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Semantic Scholar ${res.status}: ${body.slice(0, 180)}`);
+    }
+    return (await res.json()) as T;
   });
-  queue = run.then(
+  chain = run.then(
     () => undefined,
     () => undefined,
   );
   return run as Promise<T>;
+}
+
+function asPaper(value: unknown): S2Paper | null {
+  if (!value || typeof value !== "object") return null;
+  const paper = value as S2Paper & { citedPaper?: S2Paper; citingPaper?: S2Paper };
+  const inner = paper.citedPaper || paper.citingPaper || paper;
+  if (!inner.paperId && !inner.title) return null;
+  return inner;
 }
 
 export async function s2Paper(lookup: string): Promise<S2Paper> {
@@ -79,48 +100,45 @@ export async function s2Paper(lookup: string): Promise<S2Paper> {
   );
 }
 
-export async function s2Search(query: string): Promise<S2Paper | null> {
-  const data = await s2Fetch<{ data?: S2Paper[] }>(
-    `/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=1&fields=${PAPER_FIELDS}`,
+export async function s2Neighborhood(lookup: string) {
+  const data = await s2Fetch<
+    S2Paper & { references?: unknown[]; citations?: unknown[] }
+  >(
+    `/graph/v1/paper/${encodeURIComponent(lookup)}?fields=${GRAPH_FIELDS}`,
   );
-  return data.data?.[0] ?? null;
+  return {
+    paper: data,
+    references: (data.references ?? [])
+      .map(asPaper)
+      .filter((p): p is S2Paper => Boolean(p?.title)),
+    citations: (data.citations ?? [])
+      .map(asPaper)
+      .filter((p): p is S2Paper => Boolean(p?.title)),
+  };
 }
 
-export async function s2References(lookup: string, limit = 40) {
-  const data = await s2Fetch<{ data?: { citedPaper?: S2Paper }[] }>(
+export async function s2References(lookup: string, limit = 12) {
+  const data = await s2Fetch<{ data?: unknown[] }>(
     `/graph/v1/paper/${encodeURIComponent(lookup)}/references?fields=${LIST_FIELDS}&limit=${limit}`,
   );
   return (data.data ?? [])
-    .map((row) => row.citedPaper)
-    .filter((p): p is S2Paper => Boolean(p?.paperId && p.title));
+    .map(asPaper)
+    .filter((p): p is S2Paper => Boolean(p?.title));
 }
 
-export async function s2Citations(lookup: string, limit = 40) {
-  const data = await s2Fetch<{
-    data?: { isInfluential?: boolean; citingPaper?: S2Paper }[];
-  }>(
-    `/graph/v1/paper/${encodeURIComponent(lookup)}/citations?fields=${LIST_FIELDS},isInfluential&limit=${limit}`,
+export async function s2Citations(lookup: string, limit = 12) {
+  const data = await s2Fetch<{ data?: unknown[] }>(
+    `/graph/v1/paper/${encodeURIComponent(lookup)}/citations?fields=${LIST_FIELDS}&limit=${limit}`,
   );
-  return (data.data ?? [])
-    .map((row) => ({
-      paper: row.citingPaper,
-      influential: Boolean(row.isInfluential),
-    }))
-    .filter(
-      (row): row is { paper: S2Paper; influential: boolean } =>
-        Boolean(row.paper?.paperId && row.paper.title),
-    );
-}
-
-export async function s2Recommendations(lookup: string, limit = 15) {
-  try {
-    const data = await s2Fetch<{ recommendedPapers?: S2Paper[] }>(
-      `/recommendations/v1/papers/forpaper/${encodeURIComponent(lookup)}?fields=${LIST_FIELDS}&limit=${limit}`,
-    );
-    return (data.recommendedPapers ?? []).filter(
-      (p): p is S2Paper => Boolean(p?.paperId && p.title),
-    );
-  } catch {
-    return [];
-  }
+  return (data.data ?? []).map((row) => {
+    const paper = asPaper(row);
+    const influential =
+      Boolean(row && typeof row === "object" && "isInfluential" in row
+        ? (row as { isInfluential?: boolean }).isInfluential
+        : false);
+    return { paper, influential };
+  }).filter(
+    (row): row is { paper: S2Paper; influential: boolean } =>
+      Boolean(row.paper?.title),
+  );
 }

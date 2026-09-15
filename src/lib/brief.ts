@@ -8,7 +8,8 @@ import {
   s2LookupId,
   stripArxivVersion,
 } from "./parse";
-import { s2Citations, s2Paper, s2References } from "./s2";
+import { getArxiv } from "./arxiv";
+import { s2Neighborhood } from "./s2";
 import type { Brief, Candidate, Neighbor, S2Paper } from "./types";
 
 function authorLine(paper: S2Paper) {
@@ -165,21 +166,86 @@ export async function loadBrief(
   return brief;
 }
 
+function paperFromArxiv(id: string, title: string, authors: string[], summary: string, year?: number, doi?: string, pdfUrl?: string): S2Paper {
+  return {
+    paperId: id,
+    title,
+    abstract: summary,
+    year,
+    authors: authors.map((name) => ({ name })),
+    externalIds: { ArXiv: id, DOI: doi },
+    openAccessPdf: pdfUrl ? { url: pdfUrl } : null,
+  };
+}
+
+export async function getNeighborhood(id: string) {
+  const cached = await readBrief(id);
+  if (cached && (cached.builtOn.length || cached.then.length)) {
+    return {
+      builtOn: cached.builtOn,
+      similar: cached.similar,
+      then: cached.then,
+    };
+  }
+  try {
+    const graph = await s2Neighborhood(s2LookupId(id));
+    const self = new Set(
+      [id, graph.paper.paperId, arxivOf(graph.paper)].filter(Boolean) as string[],
+    );
+    const builtPool = unique(
+      graph.references
+        .map((p) => toCandidate(p, "reference"))
+        .filter(Boolean) as Candidate[],
+      self,
+    );
+    const thenPool = unique(
+      rank(
+        graph.citations
+          .map((p) => toCandidate(p, "citation"))
+          .filter(Boolean) as Candidate[],
+      ),
+      self,
+    );
+    const similarPool = unique(builtPool.slice(3, 9), self);
+    return {
+      builtOn: pickNeighbors(undefined, builtPool, builtPool),
+      similar: pickNeighbors(undefined, similarPool, similarPool),
+      then: pickNeighbors(undefined, thenPool, thenPool),
+    };
+  } catch {
+    return { builtOn: [], similar: [], then: [] };
+  }
+}
+
 export async function generateBrief(
   id: string,
   auth?: LlmAuth,
 ): Promise<Brief> {
   const lookup = s2LookupId(id);
-  const paper = await s2Paper(lookup);
+  let paper: S2Paper;
+  let refs: S2Paper[] = [];
+  let cites: S2Paper[] = [];
+  try {
+    const graph = await s2Neighborhood(lookup);
+    paper = graph.paper;
+    refs = graph.references;
+    cites = graph.citations;
+  } catch {
+    const ax = await getArxiv(id);
+    paper = paperFromArxiv(
+      ax.id,
+      ax.title,
+      ax.authors,
+      ax.summary,
+      ax.year,
+      ax.doi,
+      ax.pdfUrl,
+    );
+  }
   const canonical = canonicalPaperId({
-    arxivId: arxivOf(paper),
+    arxivId: arxivOf(paper) || (id.match(/^\d{4}\.\d{4,5}$/) ? id : undefined),
     paperId: paper.paperId,
   });
-
-  const [refs, cites] = await Promise.all([
-    s2References(lookup, 12),
-    s2Citations(lookup, 12),
-  ]);
 
   const self = new Set(
     [canonical, paper.paperId, arxivOf(paper)].filter(Boolean) as string[],
@@ -194,9 +260,7 @@ export async function generateBrief(
   );
   const thenRanked = rank(
     cites
-      .map((row) =>
-        toCandidate(row.paper, "citation", { influential: row.influential }),
-      )
+      .map((p) => toCandidate(p, "citation"))
       .filter(Boolean) as Candidate[],
   );
   const thenMeaningful = thenRanked.filter(
